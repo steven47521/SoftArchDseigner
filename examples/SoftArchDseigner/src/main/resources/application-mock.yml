@@ -1,0 +1,15 @@
+# Mock profile: fake LLM, port 8083, isolated output/logs for smoke testing.
+spring:
+  ai:
+    openai:
+      api-key: mock-key-not-used
+
+server:
+  port: 8083
+
+softarch:
+  logs-dir: logs-mock
+  output-dir: output-mock
+  mock:
+    auto-run: true
+    thread-id: mock-integration-thread

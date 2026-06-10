@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: SoftArchDesigner
+  autoconfigure:
+    exclude:
+      - com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAgentAutoConfiguration
+      - com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeChatAutoConfiguration
+  ai:
+    openai:
+      api-key: sk_LjYmNvTukF6gMi6v6odp10KYPFGjiV1p8YLA4wO-Kag
+      base-url: https://api.ppio.com/openai
+      chat:
+        options:
+          model: deepseek/deepseek-v4-pro
+
+server:
+  port: 8082
+
+softarch:
+  logs-dir: logs
+  output-dir: output
