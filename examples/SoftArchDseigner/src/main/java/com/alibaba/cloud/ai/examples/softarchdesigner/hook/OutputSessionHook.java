@@ -19,6 +19,7 @@ import com.alibaba.cloud.ai.examples.softarchdesigner.interceptor.OutputPathInte
 import com.alibaba.cloud.ai.examples.softarchdesigner.interceptor.SessionPathToolInterceptor;
 import com.alibaba.cloud.ai.examples.softarchdesigner.output.OutputSessionService;
 import com.alibaba.cloud.ai.examples.softarchdesigner.output.OutputSessionService.SessionInfo;
+import com.alibaba.cloud.ai.examples.softarchdesigner.output.StepOutputCheckService;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.agent.hook.AgentHook;
@@ -34,10 +35,14 @@ public class OutputSessionHook extends AgentHook {
 
 	private final OutputPathInterceptor outputPathInterceptor;
 
+	private final StepOutputCheckService stepOutputCheckService;
+
 	public OutputSessionHook(OutputSessionService outputSessionService,
-			OutputPathInterceptor outputPathInterceptor) {
+			OutputPathInterceptor outputPathInterceptor,
+			StepOutputCheckService stepOutputCheckService) {
 		this.outputSessionService = outputSessionService;
 		this.outputPathInterceptor = outputPathInterceptor;
+		this.stepOutputCheckService = stepOutputCheckService;
 	}
 
 	@Override
@@ -63,7 +68,14 @@ public class OutputSessionHook extends AgentHook {
 
 	@Override
 	public CompletableFuture<Map<String, Object>> afterAgent(OverAllState state, RunnableConfig config) {
-		outputPathInterceptor.clearCurrentSessionPath();
+		try {
+			String threadId = config.threadId().orElse("default");
+			SessionInfo sessionInfo = outputSessionService.getSession(threadId);
+			stepOutputCheckService.checkSession(sessionInfo.outputDir());
+		}
+		finally {
+			outputPathInterceptor.clearCurrentSessionPath();
+		}
 		return CompletableFuture.completedFuture(Map.of());
 	}
 

@@ -141,7 +141,12 @@ public class SoftArchDesignAgent {
 				- Iteration 1: after global Step 1, execute Steps 2–7 → iteration-1/step-2.md … step-7.md.
 				- Iterations 2–4: execute Steps 2–7 only → iteration-N/step-2.md … step-7.md.
 				- For each step, output a clearly labeled section: "## ADD Step N: <step name>".
-				- Include relevant Mermaid or PlantUML diagrams in Step 6.
+				- In every Step 2, include a "Driver Selection Table" with columns:
+				  Driver ID, Driver Type, Selection Reason, Design Impact.
+				  Driver ID values MUST come only from HPS-*, QA-*, CRN-*, or CON-* IDs in the prior knowledge.
+				- In every Step 6, include at least one Mermaid or PlantUML fenced code block.
+				  After each diagram, briefly state which drivers the diagram addresses.
+				  Keep Step 6 diagrams focused on the current iteration goal; do not mechanically repeat prior iteration views.
 
 				# File Handling (IMPORTANT)
 				- Each chat thread gets its own timestamped folder (see # Output Session — use ONLY that path).

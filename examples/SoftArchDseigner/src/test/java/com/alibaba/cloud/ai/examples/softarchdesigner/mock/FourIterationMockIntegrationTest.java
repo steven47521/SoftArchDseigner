@@ -97,6 +97,7 @@ class FourIterationMockIntegrationTest {
 		assertTrue(Files.exists(outputDir.resolve("iteration-4/step-7.md")));
 		assertFalse(Files.exists(outputDir.resolve("iteration-4/step-1.md")));
 		assertTrue(Files.exists(logsDir.resolve("conversation-turns.jsonl")));
+		assertTrue(Files.exists(logsDir.resolve("SUBMISSION_CONVERSATION_LOG.md")));
 
 		JsonNode summary = new ObjectMapper().readTree(Files.readString(logsDir.resolve("session-summary.json")));
 		assertEquals(4, summary.path("humanInteractionCount").asInt());
@@ -108,6 +109,9 @@ class FourIterationMockIntegrationTest {
 		Path report = new ReportExportService().exportReport(outputDir, logsDir);
 		assertTrue(Files.exists(report));
 		assertTrue(Files.readString(report).contains("Interaction Cost Analysis"));
+		String submissionLog = Files.readString(logsDir.resolve("SUBMISSION_CONVERSATION_LOG.md"));
+		assertTrue(submissionLog.contains("## Iteration 1"));
+		assertTrue(submissionLog.contains("#### Human Input"));
 		assertTrue(fakeAddChatModel.getCallCount() >= 4);
 	}
 

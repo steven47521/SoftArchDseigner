@@ -61,6 +61,8 @@ public class ConversationLogService {
 
 	private static final String LLM_CALLS_LOG_FILE = "llm-calls.log";
 
+	private static final String SUBMISSION_CONVERSATION_LOG_FILE = "SUBMISSION_CONVERSATION_LOG.md";
+
 	private final OutputSessionService outputSessionService;
 
 	private final ObjectMapper objectMapper;
@@ -116,6 +118,7 @@ public class ConversationLogService {
 		writeTurnLog(turn);
 		appendTurnJsonLine(turn);
 		writeSessionSummary(threadId);
+		writeSubmissionConversationLog(threadId);
 	}
 
 	public void logLlmCall(
@@ -350,6 +353,140 @@ public class ConversationLogService {
 		catch (IOException e) {
 			throw new IllegalStateException("Failed to write session summary", e);
 		}
+	}
+
+	private synchronized void writeSubmissionConversationLog(String threadId) {
+		SessionMetrics session = getOrCreateSession(threadId);
+		OutputSessionService.SessionInfo sessionInfo = outputSessionService.getSession(threadId);
+		StringBuilder log = new StringBuilder();
+		log.append("# Submission Conversation Log\n\n");
+		log.append("Generated from raw conversation logs. Raw logs remain available in this folder.\n\n");
+
+		log.append("## Session Summary\n\n");
+		log.append("| Field | Value |\n");
+		log.append("|-------|-------|\n");
+		appendMarkdownRow(log, "AI paradigm", "Single Agent (Sequential Reasoning + Self-Reflection)");
+		appendMarkdownRow(log, "LLM model", OpenAiModelConfig.MODEL_NAME);
+		appendMarkdownRow(log, "Case study", "Hotel Pricing System");
+		appendMarkdownRow(log, "Session timestamp", sessionInfo.timestamp());
+		appendMarkdownRow(log, "Session start", formatInstant(session.getSessionStart()));
+		appendMarkdownRow(log, "Session end", formatInstant(session.getSessionEnd()));
+		appendMarkdownRow(log, "Human interactions", String.valueOf(session.getHumanInteractionCount()));
+		appendMarkdownRow(log, "LLM calls", String.valueOf(session.getLlmCallCount()));
+		appendMarkdownRow(log, "Total tokens (K)", String.valueOf(Math.round(session.getTotalTokens() / 10.0) / 100.0));
+		appendMarkdownRow(log, "Total duration (ms)", String.valueOf(session.getTotalDurationMs()));
+
+		log.append("\n## Iteration Token/Time Summary\n\n");
+		log.append("| Iteration | Human Turns | LLM Calls | Tokens | Duration (ms) |\n");
+		log.append("|-----------|-------------|-----------|--------|---------------|\n");
+		for (int iteration = 1; iteration <= 4; iteration++) {
+			appendIterationSummaryRow(log, session, iteration);
+		}
+
+		for (int iteration = 1; iteration <= 4; iteration++) {
+			appendIterationTurns(log, session, iteration);
+		}
+		appendUnclassifiedTurns(log, session);
+
+		try {
+			Files.writeString(sessionInfo.logsDir().resolve(SUBMISSION_CONVERSATION_LOG_FILE),
+					log.toString(),
+					StandardCharsets.UTF_8);
+		}
+		catch (IOException e) {
+			throw new IllegalStateException("Failed to write submission conversation log", e);
+		}
+	}
+
+	private void appendIterationSummaryRow(StringBuilder log, SessionMetrics session, int iteration) {
+		int humanTurns = 0;
+		int llmCalls = 0;
+		int tokens = 0;
+		long durationMs = 0;
+		for (ConversationTurn turn : session.getConversationTurns()) {
+			if (turn.getIterationHint() != null && turn.getIterationHint() == iteration) {
+				humanTurns++;
+				llmCalls += turn.getLlmCallIds().size();
+				tokens += turn.getTotalTokens();
+				durationMs += turn.getDurationMs();
+			}
+		}
+		log.append("| ").append(iteration)
+				.append(" | ").append(humanTurns)
+				.append(" | ").append(llmCalls)
+				.append(" | ").append(tokens)
+				.append(" | ").append(durationMs)
+				.append(" |\n");
+	}
+
+	private void appendIterationTurns(StringBuilder log, SessionMetrics session, int iteration) {
+		log.append("\n## Iteration ").append(iteration).append("\n\n");
+		boolean found = false;
+		for (ConversationTurn turn : session.getConversationTurns()) {
+			if (turn.getIterationHint() != null && turn.getIterationHint() == iteration) {
+				found = true;
+				appendTurn(log, turn);
+			}
+		}
+		if (!found) {
+			log.append("_No conversation turn recorded for this iteration yet._\n");
+		}
+	}
+
+	private void appendUnclassifiedTurns(StringBuilder log, SessionMetrics session) {
+		boolean hasUnclassified = false;
+		for (ConversationTurn turn : session.getConversationTurns()) {
+			if (turn.getIterationHint() == null) {
+				if (!hasUnclassified) {
+					log.append("\n## Unclassified Turns\n\n");
+					hasUnclassified = true;
+				}
+				appendTurn(log, turn);
+			}
+		}
+	}
+
+	private void appendTurn(StringBuilder log, ConversationTurn turn) {
+		log.append("### Turn ").append(turn.getTurnId()).append("\n\n");
+		log.append("| Field | Value |\n");
+		log.append("|-------|-------|\n");
+		appendMarkdownRow(log, "Timestamp start", formatInstant(turn.getTimestampStart()));
+		appendMarkdownRow(log, "Timestamp end", formatInstant(turn.getTimestampEnd()));
+		appendMarkdownRow(log, "Duration (ms)", String.valueOf(turn.getDurationMs()));
+		appendMarkdownRow(log, "Tokens", String.valueOf(turn.getTotalTokens()));
+		appendMarkdownRow(log, "LLM call IDs", turn.getLlmCallIds().toString());
+		log.append("\n#### Human Input\n\n");
+		appendTextBlock(log, turn.getInput());
+		log.append("\n#### Agent Output\n\n");
+		appendTextBlock(log, turn.getOutput());
+		log.append("\n");
+	}
+
+	private void appendTextBlock(StringBuilder log, String text) {
+		String value = nullToEmpty(text);
+		String fence = textFence(value);
+		log.append(fence).append("text\n");
+		log.append(value).append("\n");
+		log.append(fence).append("\n");
+	}
+
+	private String textFence(String text) {
+		int length = 3;
+		Matcher matcher = Pattern.compile("~{3,}").matcher(text);
+		while (matcher.find()) {
+			length = Math.max(length, matcher.group().length() + 1);
+		}
+		return "~".repeat(length);
+	}
+
+	private void appendMarkdownRow(StringBuilder table, String field, String value) {
+		table.append("| ").append(escapeTableCell(field))
+				.append(" | ").append(escapeTableCell(value))
+				.append(" |\n");
+	}
+
+	private String escapeTableCell(String value) {
+		return nullToEmpty(value).replace("|", "\\|").replace("\n", "<br/>");
 	}
 
 	private String formatMessages(List<Message> messages, String systemPrompt) {
