@@ -47,7 +47,7 @@ public class SessionPathToolInterceptor extends ToolInterceptor {
 
 	private static final Set<String> FILE_PATH_TOOLS = Set.of("read_file", "write_file", "edit_file");
 
-	private static final Set<String> STRING_PATH_TOOLS = Set.of("ls", "glob");
+	private static final Set<String> OBJECT_PATH_TOOLS = Set.of("ls", "glob");
 
 	private static final Pattern OUTPUT_TIMESTAMP_PREFIX = Pattern
 			.compile("^output/\\d{4}-\\d{2}-\\d{2}_\\d{6}/(.*)$");
@@ -107,7 +107,7 @@ public class SessionPathToolInterceptor extends ToolInterceptor {
 	}
 
 	private boolean isFilesystemTool(String toolName) {
-		return FILE_PATH_TOOLS.contains(toolName) || STRING_PATH_TOOLS.contains(toolName) || "grep".equals(toolName);
+		return FILE_PATH_TOOLS.contains(toolName) || OBJECT_PATH_TOOLS.contains(toolName) || "grep".equals(toolName);
 	}
 
 	private Optional<String> resolveSessionPath(ToolCallRequest request) {
@@ -129,8 +129,11 @@ public class SessionPathToolInterceptor extends ToolInterceptor {
 			if ("grep".equals(toolName)) {
 				return rewriteGrepTool(arguments, sessionRoot);
 			}
-			if (STRING_PATH_TOOLS.contains(toolName)) {
-				return rewriteStringPathTool(arguments, sessionRoot);
+			if ("ls".equals(toolName)) {
+				return rewriteObjectPathTool(arguments, sessionRoot, "path");
+			}
+			if ("glob".equals(toolName)) {
+				return rewriteObjectPathTool(arguments, sessionRoot, "pattern");
 			}
 			return PathRewriteResult.unchanged(arguments);
 		}
@@ -176,9 +179,14 @@ public class SessionPathToolInterceptor extends ToolInterceptor {
 		return new PathRewriteResult(objectMapper.writeValueAsString(node), true, original, resolved);
 	}
 
-	private PathRewriteResult rewriteStringPathTool(String arguments, String sessionRoot) throws Exception {
-		String original = parseStringArgument(arguments);
-		if (original == null || original.isBlank()) {
+	private PathRewriteResult rewriteObjectPathTool(String arguments, String sessionRoot, String fieldName)
+			throws Exception {
+		JsonNode node = objectMapper.readTree(arguments);
+		if (!node.isObject() || !node.has(fieldName) || node.get(fieldName).isNull()) {
+			return PathRewriteResult.unchanged(arguments);
+		}
+		String original = node.get(fieldName).asText();
+		if (original.isBlank()) {
 			return PathRewriteResult.unchanged(arguments);
 		}
 		String resolved = resolveUnderSession(original, sessionRoot);
@@ -188,7 +196,8 @@ public class SessionPathToolInterceptor extends ToolInterceptor {
 		if (resolved.equals(original)) {
 			return new PathRewriteResult(arguments, false, original, resolved);
 		}
-		return new PathRewriteResult(objectMapper.writeValueAsString(resolved), true, original, resolved);
+		((ObjectNode) node).put(fieldName, resolved);
+		return new PathRewriteResult(objectMapper.writeValueAsString(node), true, original, resolved);
 	}
 
 	String resolveUnderSession(String rawPath, String sessionRoot) {
@@ -235,17 +244,6 @@ public class SessionPathToolInterceptor extends ToolInterceptor {
 			return true;
 		}
 		return ITERATION_STEP_FILE.matcher(normalized).find();
-	}
-
-	private String parseStringArgument(String arguments) throws Exception {
-		if (arguments == null || arguments.isBlank()) {
-			return null;
-		}
-		String trimmed = arguments.trim();
-		if (trimmed.startsWith("\"")) {
-			return objectMapper.readValue(trimmed, String.class);
-		}
-		return trimmed;
 	}
 
 	record PathRewriteResult(String arguments, boolean rewritten, String originalPath, String resolvedPath, String error) {

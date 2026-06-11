@@ -5,13 +5,15 @@ spring:
     exclude:
       - com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeAgentAutoConfiguration
       - com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
   ai:
     openai:
-      api-key: sk_LjYmNvTukF6gMi6v6odp10KYPFGjiV1p8YLA4wO-Kag
+      api-key: sk_DK3AMAdV0XbcwdQNff4PCHTYdZKRIZ8qCMgl0qifZHo
       base-url: https://api.ppio.com/openai
       chat:
         options:
-          model: deepseek/deepseek-v4-pro
+          model: pa/gpt-5.4
+          temperature: 1
 
 server:
   port: 8082

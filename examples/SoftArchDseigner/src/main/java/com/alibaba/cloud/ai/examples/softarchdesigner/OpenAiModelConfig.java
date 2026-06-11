@@ -49,10 +49,32 @@ public class OpenAiModelConfig {
 				.apiKey(apiKey)
 				.build();
 
+		OpenAiChatOptions.Builder optionsBuilder = OpenAiChatOptions.builder().model(model);
+		if (isReasoningModel(model)) {
+			// GPT-5 / o-series reasoning models reject non-default temperature and max_tokens.
+			optionsBuilder.temperature(1.0);
+			optionsBuilder.maxCompletionTokens(16384);
+		}
+
 		return OpenAiChatModel.builder()
 				.openAiApi(openAiApi)
-				.defaultOptions(OpenAiChatOptions.builder().model(model).build())
+				.defaultOptions(optionsBuilder.build())
 				.build();
+	}
+
+	private static boolean isReasoningModel(String model) {
+		if (model == null || model.isBlank()) {
+			return false;
+		}
+		String normalized = model.toLowerCase();
+		return normalized.contains("gpt-5")
+				|| normalized.contains("o1")
+				|| normalized.contains("o3")
+				|| normalized.contains("o4")
+				|| normalized.contains("/r1")
+				|| normalized.startsWith("pa/gpt-")
+				|| normalized.startsWith("pa/o")
+				|| normalized.startsWith("pa/p");
 	}
 
 }

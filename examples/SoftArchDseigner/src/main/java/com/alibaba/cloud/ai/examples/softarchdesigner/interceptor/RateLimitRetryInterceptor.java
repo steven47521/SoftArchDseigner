@@ -77,6 +77,10 @@ public class RateLimitRetryInterceptor extends ModelInterceptor {
 		}
 		catch (Exception e) {
 			log.warn("Model call failed (attempt {}/{}): {}", attempt, maxAttempts, e.getMessage());
+			String responseBody = extractResponseBody(e);
+			if (responseBody != null) {
+				log.warn("PPIO response body: {}", responseBody);
+			}
 			if (attempt >= maxAttempts || !isRetryable(e)) {
 				throw new RuntimeException("Model call failed after " + attempt + " attempt(s)", e);
 			}
@@ -105,6 +109,10 @@ public class RateLimitRetryInterceptor extends ModelInterceptor {
 			int failedAttempt, long delayMs, Throwable error) {
 		Exception exception = error instanceof Exception ex ? ex : new RuntimeException(error);
 		log.warn("Streaming model call failed (attempt {}/{}): {}", failedAttempt, maxAttempts, exception.getMessage());
+		String responseBody = extractResponseBody(exception);
+		if (responseBody != null) {
+			log.warn("PPIO response body: {}", responseBody);
+		}
 
 		if (failedAttempt >= maxAttempts || !isRetryable(exception)) {
 			return Flux.error(new RuntimeException("Streaming model call failed after " + failedAttempt + " attempt(s)", exception));
@@ -129,6 +137,24 @@ public class RateLimitRetryInterceptor extends ModelInterceptor {
 						return retryStreaming(request, handler, nextAttempt, nextDelay, retryError);
 					}
 				}));
+	}
+
+	private static String extractResponseBody(Throwable error) {
+		Throwable current = error;
+		while (current != null) {
+			try {
+				var method = current.getClass().getMethod("getResponseBodyAsString");
+				Object body = method.invoke(current);
+				if (body instanceof String text && !text.isBlank()) {
+					return text;
+				}
+			}
+			catch (ReflectiveOperationException ignored) {
+				// Not a WebClientResponseException
+			}
+			current = current.getCause();
+		}
+		return null;
 	}
 
 	static boolean isRetryable(Throwable error) {

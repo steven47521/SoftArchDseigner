@@ -158,7 +158,7 @@ public class SoftArchDesignAgent {
 				   ## Self-Reflection (Step M)
 				   with the four checklist items below (yes/no + brief explanation).
 				3. In the chat, output a short line: "Completed ADD Step M — see <file> for content and self-reflection."
-				Then proceed to the next step. Do NOT skip self-reflection for global Step 1 or iteration Steps 2–6.
+				Then proceed to the next step. Do NOT skip self-reflection for global Step 1 or iteration Steps 2–7.
 				Checklist (repeat in each step file reflection section):
 				- Whether only prior knowledge was used (yes/no and explanation)
 				- Whether current iteration drivers are addressed (yes/no and explanation)

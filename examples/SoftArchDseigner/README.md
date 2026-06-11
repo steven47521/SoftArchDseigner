@@ -298,6 +298,32 @@ mvn compile -DskipTests
 
 ## 常见问题
 
+### 400 Bad Request（切换到 `pa/gpt-5.4` 等推理模型）
+
+日志示例：
+
+```
+400 Bad Request from POST https://api.ppio.com/openai/v1/chat/completions
+Streaming model call failed after 1 attempt(s)
+```
+
+**常见原因**：
+
+1. **工具参数 schema 不合规**（最常见）：`pa/gpt-5.4` 要求每个工具的 parameters 必须是 `type: "object"`。若日志出现：
+   ```
+   Invalid schema for function 'ls': schema must be a JSON Schema of 'type: "object"', got 'type: "string"'
+   ```
+   说明 `ls`/`glob` 等工具的参数格式不对（已修复为 `{"path": "..."}` / `{"pattern": "..."}` 对象格式）。
+
+2. **推理模型参数限制**：`pa/gpt-5.4` 对 `temperature`、`max_tokens` 也更严格，通常只接受 `temperature: 1` 和 `max_completion_tokens`。
+
+**已内置处理**（`OpenAiModelConfig.java`）：
+
+- 检测到 `pa/gpt-*`、`gpt-5*`、`o1/o3/o4` 等推理模型时，自动设置 `temperature=1.0`、`maxCompletionTokens=16384`
+- 排除 `OpenAiChatAutoConfiguration`，避免自动配置再注入一份带默认 `temperature=0.7` 的 ChatModel
+
+若仍报 400，请查看日志中的 `PPIO response body:` 行，里面会有具体字段错误说明。
+
 ### 403 Forbidden from `api.ppio.com/openai/v1/chat/completions`
 
 应用和 URL 配置正常时，403 通常**不是代码问题**，而是 PPIO 账号权限问题。

@@ -18,8 +18,10 @@ package com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem;
 import com.alibaba.cloud.ai.graph.agent.extension.file.FileInfo;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.ai.tool.function.FunctionToolCallback;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 
 import java.nio.file.Paths;
 import java.io.IOException;
@@ -39,7 +41,7 @@ import java.util.stream.Stream;
 /**
  * Tool for listing files in a directory.
  */
-public class ListFilesTool implements BiFunction<String, ToolContext, String> {
+public class ListFilesTool implements BiFunction<ListFilesTool.ListFilesRequest, ToolContext, String> {
 
 	public static final String DESCRIPTION = """
 			Lists all files in the filesystem, filtering by directory.
@@ -55,11 +57,9 @@ public class ListFilesTool implements BiFunction<String, ToolContext, String> {
 	}
 
 	@Override
-	public String apply(
-			@ToolParam(description = "The directory path to list files from") String path,
-			ToolContext toolContext) {
+	public String apply(ListFilesRequest request, ToolContext toolContext) {
 		try {
-			Path dirPath = Paths.get(path);
+			Path dirPath = Paths.get(request.path);
 			List<FileInfo> fileInfos = listFilesContent(dirPath, null, false);
 			
 			// Format as simple path list for backward compatibility
@@ -71,7 +71,7 @@ public class ListFilesTool implements BiFunction<String, ToolContext, String> {
 			return filePaths.isEmpty() ? "Directory is empty" : String.join("\n", filePaths);
 		}
 		catch (Exception e) {
-			return "Error listing directory '" + path + "': " + e.getMessage();
+			return "Error listing directory '" + request.path + "': " + e.getMessage();
 		}
 	}
 
@@ -210,8 +210,25 @@ public class ListFilesTool implements BiFunction<String, ToolContext, String> {
 	public static ToolCallback createListFilesToolCallback(String description) {
 		return FunctionToolCallback.builder("ls", new ListFilesTool())
 				.description(description)
-				.inputType(String.class)
+				.inputType(ListFilesRequest.class)
 				.build();
+	}
+
+	/**
+	 * Request structure for listing files in a directory.
+	 */
+	public static class ListFilesRequest {
+
+		@JsonProperty(required = true, value = "path")
+		@JsonPropertyDescription("The absolute directory path to list files from")
+		public String path;
+
+		public ListFilesRequest() {
+		}
+
+		public ListFilesRequest(String path) {
+			this.path = path;
+		}
 	}
 }
 

@@ -132,7 +132,7 @@ class SessionPathToolInterceptorTest {
 	}
 
 	@Test
-	void rewritesLsStringArgument() {
+	void rewritesLsPathArgument() {
 		AtomicReference<ToolCallRequest> captured = new AtomicReference<>();
 		ToolCallHandler handler = request -> {
 			captured.set(request);
@@ -142,13 +142,13 @@ class SessionPathToolInterceptorTest {
 		ToolCallRequest request = ToolCallRequest.builder()
 				.toolName("ls")
 				.toolCallId("call-2")
-				.arguments("\"output/iteration-1\"")
+				.arguments("{\"path\":\"output/iteration-1\"}")
 				.executionContext(executionContext("thread-test"))
 				.build();
 
 		interceptor.interceptToolCall(request, handler);
 
-		assertEquals("\"" + sessionPath + "/iteration-1" + "\"", captured.get().getArguments());
+		assertTrue(captured.get().getArguments().contains("\"path\":\"" + sessionPath + "/iteration-1\""));
 	}
 
 	private ToolCallExecutionContext executionContext(String threadId) {
